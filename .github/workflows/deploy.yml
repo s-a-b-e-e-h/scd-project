@@ -1,0 +1,46 @@
+name: Deploy to Minikube
+
+on:
+  push:
+    branches:
+      - main  # Trigger on push to the main branch (you can change this to your desired branch)
+
+jobs:
+  deploy:
+    runs-on: self-hosted  # This will make sure the job runs on your self-hosted runner
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2  # Checkout your repository code
+
+      - name: Set up Minikube
+        run: |
+          minikube start  # Start Minikube on the self-hosted machine
+
+      - name: Set up Docker
+        run: |
+          eval $(minikube docker-env)  # Set Docker to use Minikube's Docker daemon
+
+      - name: Build Docker Images
+        run: |
+          docker build -t sabeehdayyan/backend ./backend  
+          docker build -t sabeehdayyan/frontend ./frontend 
+
+      - name: Push Docker Images to Docker Hub
+        run: |
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}  
+          docker push sabeehdayyan/backend
+          docker push sabeehdayyan/frontend
+
+      - name: Deploy to Kubernetes (Minikube)
+        run: |
+          kubectl apply -f k8s/mongo-deployment.yaml
+          kubectl apply -f k8s/backend-deployment.yaml
+          kubectl apply -f k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/backend-service.yaml
+          kubectl apply -f k8s/frontend-service.yaml
+
+      - name: Expose services (Optional)
+        run: |
+          minikube service backend-service --url  # Get the service URL
+          minikube service frontend-service --url  # Get the service URL
